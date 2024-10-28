@@ -2,6 +2,7 @@ package org.example.storetoolproject.services;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.storetoolproject.exceptions.ProductNotFoundException;
 import org.example.storetoolproject.models.entities.Product;
 import org.example.storetoolproject.models.requests.ProductRequest;
 import org.example.storetoolproject.models.requests.ProductUpdateRequest;
@@ -13,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static org.example.storetoolproject.enums.ProductStatus.DELETED;
 
@@ -25,6 +27,7 @@ public class StoreService {
     private final ProductRepository productRepository;
 
     public int saveProduct(ProductRequest productRequest) {
+        try{
             Product product = Product.builder()
                     .name(productRequest.getName())
                     .category(productRequest.getCategory().getValue())
@@ -32,49 +35,106 @@ public class StoreService {
                     .currency(productRequest.getCurrency())
                     .stock(productRequest.getStock())
                     .brand(productRequest.getBrand())
-                    .createdBy("georgiana")
+                    .createdBy("user")
                     .createdOn(LocalDateTime.now())
                     .status(productRequest.getStatus().getValue())
                     .build();
+
+            log.info("The product with name {} was saved successfuly.", productRequest.getName());
             return productRepository.save(product).getId();
+        }catch (Exception e){
+            log.error(e.getMessage());
+            throw new RuntimeException("Error while saving product.");
+        }
     }
 
     public List<Product> getAllAvailableProducts() {
-        return productRepository.findAll()
+        try {
+            List<Product> allAvailableProducts = productRepository.findAll()
                     .stream()
                     .filter(product -> !DELETED.getValue().equals(product.getStatus()))
                     .toList();
+            if(isNull(allAvailableProducts) || allAvailableProducts.isEmpty()){
+                throw new ProductNotFoundException();
+            }
+            return allAvailableProducts;
+        } catch (Exception e) {
+            throw new RuntimeException("Error while getting available products.");
+        }
     }
 
     public List<Product> getAllUnavailableProducts() {
-            return productRepository.findAll()
+        try {
+            List<Product> allUnavailableProducts = productRepository.findAll()
                     .stream()
                     .filter(product -> DELETED.getValue().equals(product.getStatus()))
                     .toList();
+            if(isNull(allUnavailableProducts) || allUnavailableProducts.isEmpty()){
+                throw new ProductNotFoundException();
+            }
+            return allUnavailableProducts;
+        } catch (Exception e) {
+            throw new RuntimeException("Error while getting available products.");
+        }
     }
 
     public Product updatePriceProduct(int productId, ProductUpdateRequest productUpdateRequest) {
-        Product oldProduct =productRepository.findProductById(productId).orElse(null);
-        Map<Boolean, Product> productMap
-                = getDifferenceBetweenOldAndNewProduct(oldProduct, productUpdateRequest);
-        productRepository.save(oldProduct);
-        return oldProduct;
+        try {
+            Product oldProduct =
+                    productRepository.findProductById(productId)
+                            .orElseThrow(() -> new ProductNotFoundException(productId));
+            Map<Boolean, Product> productMap
+                    = getDifferenceBetweenOldAndNewProduct(oldProduct, productUpdateRequest);
+            for (Map.Entry<Boolean, Product> entry : productMap.entrySet()) {
+                if (entry.getKey().equals(true)) {
+                    entry.getValue().setModifiedOn(LocalDateTime.now());
+                }
+            }
+            productRepository.save(oldProduct);
+            log.info("The product with name {} was successfully updated.", oldProduct.getName());
+            return oldProduct;
+        }catch (Exception e){
+            log.error(e.getMessage());
+            throw new RuntimeException("Error while updating product.");
+        }
     }
 
     public Product findProduct(Integer productId) {
-            return productRepository.findProductById(productId).orElse(null);
+        try {
+            return productRepository.findProductById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+        } catch (Exception e) {
+            throw new RuntimeException("Error while finding product.");
+        }
     }
 
     public List<String> filterProducts(String status) {
-            return productRepository.findAll().stream()
+        try {
+            List<String> productFiltered = productRepository.findAll().stream()
                     .filter(product -> status.equals(product.getStatus()))
-                    .map(Product::getName).toList();
+                    .map(Product::getName)
+                    .toList();
+            if(isNull(productFiltered) || productFiltered.isEmpty()){
+                throw new ProductNotFoundException();
+            }
+
+            return productFiltered;
+        } catch (Exception e) {
+            throw new RuntimeException("Error while filtering products.");
+        }
     }
 
     public void deleteProduct(Integer productId) {
-            Product product = productRepository.findProductById(productId).orElse(null);
+        try {
+            Product product = productRepository.findProductById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+
             product.setStatus(DELETED.getValue());
+            product.setDeletedOn(LocalDateTime.now());
+
             productRepository.save(product);
+            log.info("The product with name {} was successfully deleted.", product.getName());
+        } catch (Exception e) {
+            throw new RuntimeException("Error while deleting product.");
+        }
     }
 
     private Map<Boolean, Product> getDifferenceBetweenOldAndNewProduct(Product product, ProductUpdateRequest productUpdateRequest) {
@@ -106,3 +166,4 @@ public class StoreService {
     }
 
 }
+
