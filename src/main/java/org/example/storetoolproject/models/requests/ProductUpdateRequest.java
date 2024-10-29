@@ -11,9 +11,7 @@ import org.example.storetoolproject.enums.ProductStatus;
 @Builder
 @AllArgsConstructor
 public class ProductUpdateRequest {
-    private Integer pricePerUnit;
+    private Double pricePerUnit;
     private String currency;
     private Integer stock;
-    @Enumerated(EnumType.STRING)
-    private ProductStatus status;
 }

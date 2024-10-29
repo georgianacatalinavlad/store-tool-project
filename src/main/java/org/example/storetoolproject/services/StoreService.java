@@ -3,10 +3,13 @@ package org.example.storetoolproject.services;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.storetoolproject.exceptions.ProductNotFoundException;
+import org.example.storetoolproject.exceptions.StoreProcessFailedException;
 import org.example.storetoolproject.models.entities.Product;
 import org.example.storetoolproject.models.requests.ProductRequest;
 import org.example.storetoolproject.models.requests.ProductUpdateRequest;
 import org.example.storetoolproject.repositories.ProductRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,7 +19,7 @@ import java.util.Map;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
-import static org.example.storetoolproject.enums.ProductStatus.DELETED;
+import static org.example.storetoolproject.enums.ProductStatus.*;
 
 
 @Service
@@ -28,6 +31,9 @@ public class StoreService {
 
     public int saveProduct(ProductRequest productRequest) {
         try{
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+
             Product product = Product.builder()
                     .name(productRequest.getName())
                     .category(productRequest.getCategory().getValue())
@@ -37,14 +43,17 @@ public class StoreService {
                     .brand(productRequest.getBrand())
                     .createdBy("user")
                     .createdOn(LocalDateTime.now())
-                    .status(productRequest.getStatus().getValue())
+                    .createdBy(username)
+                    .status(productRequest.getStock() > 0 ? IN_STOCK.getValue() : NOT_STOCK.getValue())
                     .build();
 
             log.info("The product with name {} was saved successfuly.", productRequest.getName());
+
             return productRepository.save(product).getId();
+
         }catch (Exception e){
             log.error(e.getMessage());
-            throw new RuntimeException("Error while saving product.");
+            throw new StoreProcessFailedException("Error while saving product.");
         }
     }
 
@@ -54,12 +63,14 @@ public class StoreService {
                     .stream()
                     .filter(product -> !DELETED.getValue().equals(product.getStatus()))
                     .toList();
+
             if(isNull(allAvailableProducts) || allAvailableProducts.isEmpty()){
                 throw new ProductNotFoundException();
             }
+
             return allAvailableProducts;
         } catch (Exception e) {
-            throw new RuntimeException("Error while getting available products.");
+            throw new StoreProcessFailedException("Error while getting available products.");
         }
     }
 
@@ -69,41 +80,54 @@ public class StoreService {
                     .stream()
                     .filter(product -> DELETED.getValue().equals(product.getStatus()))
                     .toList();
+
             if(isNull(allUnavailableProducts) || allUnavailableProducts.isEmpty()){
                 throw new ProductNotFoundException();
             }
+
             return allUnavailableProducts;
+
         } catch (Exception e) {
-            throw new RuntimeException("Error while getting available products.");
+            throw new StoreProcessFailedException("Error while getting available products.");
         }
     }
 
-    public Product updatePriceProduct(int productId, ProductUpdateRequest productUpdateRequest) {
+    public Product updateProduct(int productId, ProductUpdateRequest productUpdateRequest) {
         try {
-            Product oldProduct =
-                    productRepository.findProductById(productId)
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+
+            Product oldProduct = productRepository.findProductById(productId)
                             .orElseThrow(() -> new ProductNotFoundException(productId));
+
             Map<Boolean, Product> productMap
                     = getDifferenceBetweenOldAndNewProduct(oldProduct, productUpdateRequest);
+
             for (Map.Entry<Boolean, Product> entry : productMap.entrySet()) {
                 if (entry.getKey().equals(true)) {
                     entry.getValue().setModifiedOn(LocalDateTime.now());
+                    entry.getValue().setModifiedBy(username);
+                    entry.getValue().setStatus(entry.getValue().getStock() > 0 ? IN_STOCK.getValue() : NOT_STOCK.getValue());
                 }
             }
+
             productRepository.save(oldProduct);
+
             log.info("The product with name {} was successfully updated.", oldProduct.getName());
+
             return oldProduct;
         }catch (Exception e){
             log.error(e.getMessage());
-            throw new RuntimeException("Error while updating product.");
+            throw new StoreProcessFailedException("Error while updating product.");
         }
     }
 
     public Product findProduct(Integer productId) {
         try {
-            return productRepository.findProductById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+            return productRepository.findProductById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException(productId));
         } catch (Exception e) {
-            throw new RuntimeException("Error while finding product.");
+            throw new StoreProcessFailedException("Error while finding product.");
         }
     }
 
@@ -113,27 +137,33 @@ public class StoreService {
                     .filter(product -> status.equals(product.getStatus()))
                     .map(Product::getName)
                     .toList();
+
             if(isNull(productFiltered) || productFiltered.isEmpty()){
                 throw new ProductNotFoundException();
             }
 
             return productFiltered;
         } catch (Exception e) {
-            throw new RuntimeException("Error while filtering products.");
+            throw new StoreProcessFailedException("Error while filtering products.");
         }
     }
 
     public void deleteProduct(Integer productId) {
         try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+
             Product product = productRepository.findProductById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
 
             product.setStatus(DELETED.getValue());
             product.setDeletedOn(LocalDateTime.now());
+            product.setDeletedBy(username);
 
             productRepository.save(product);
+
             log.info("The product with name {} was successfully deleted.", product.getName());
         } catch (Exception e) {
-            throw new RuntimeException("Error while deleting product.");
+            throw new StoreProcessFailedException("Error while deleting product.");
         }
     }
 
@@ -153,11 +183,6 @@ public class StoreService {
         if(nonNull(productUpdateRequest.getStock())
                 && product.getStock() != productUpdateRequest.getStock()){
             product.setStock(productUpdateRequest.getStock());
-            isProductUpdated = true;
-        }
-        if (nonNull(productUpdateRequest.getStatus().getValue())
-                && product.getStatus() != productUpdateRequest.getStatus().getValue()){
-            product.setStatus(productUpdateRequest.getStatus().getValue());
             isProductUpdated = true;
         }
 

@@ -22,9 +22,9 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests((requests) -> requests
                         .requestMatchers(HttpMethod.GET, "/api/store/**").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/api/store/save-product").hasRole("SENIOR-USER")
-                        .requestMatchers(HttpMethod.POST, "/api/store/update-product").hasRole("SENIOR-USER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/store/delete-product").hasRole("SENIOR-USER")
+                        .requestMatchers(HttpMethod.POST, "/api/store/save-product").hasRole("SENIOR-USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/store/update-product").hasRole("SENIOR-USER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/store/delete-product").hasRole("ADMIN")
                 ).httpBasic(Customizer.withDefaults());
 
         return httpSecurity.build();

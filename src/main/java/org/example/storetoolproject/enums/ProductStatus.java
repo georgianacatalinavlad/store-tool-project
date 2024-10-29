@@ -9,8 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public enum ProductStatus {
     IN_STOCK("In Stock"),
-    UNAVAILABLE("Unavailable"),
-    PENDING("Pending"),
+    NOT_STOCK("Not Stock"),
     DELETED("Deleted");
 
     private String value;
