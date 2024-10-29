@@ -19,7 +19,7 @@ public class ProductRequest {
     private String name;
     @NonNull
     @NotBlank(message = "Price should not be empty")
-    private Integer pricePerUnit;
+    private Double pricePerUnit;
     @NonNull
     @NotBlank(message = "Currency should not be empty")
     private String currency;
@@ -33,8 +33,4 @@ public class ProductRequest {
     @NonNull
     @NotBlank(message = "Brand should not be empty")
     private String brand;
-    @NonNull
-    @NotBlank(message = "Status should not be empty")
-    @Enumerated(EnumType.STRING)
-    private ProductStatus status;
 }

@@ -5,6 +5,7 @@ import org.example.storetoolproject.models.entities.Product;
 import org.example.storetoolproject.models.requests.ProductRequest;
 import org.example.storetoolproject.models.requests.ProductUpdateRequest;
 import org.example.storetoolproject.services.StoreService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,14 +27,15 @@ public class StoreController {
         return storeService.getAllUnavailableProducts();
     }
 
-    @PutMapping(value = "/save-product")
+    @PostMapping(value = "/save-product")
+    @ResponseStatus(HttpStatus.CREATED)
     private int saveProduct(@RequestBody(required = true) ProductRequest productRequest) {
         return storeService.saveProduct(productRequest);
     }
 
-    @PostMapping(value = "/update-product")
+    @PutMapping(value = "/update-product")
     private Product updatePriceProduct(@RequestParam(required = true) int productId, @RequestBody(required = false) ProductUpdateRequest productUpdateRequest) {
-        return storeService.updatePriceProduct(productId, productUpdateRequest);
+        return storeService.updateProduct(productId, productUpdateRequest);
     }
 
     @DeleteMapping(value = "/delete-product")
